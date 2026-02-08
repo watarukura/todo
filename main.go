@@ -43,6 +43,12 @@ func main() {
 		case "done":
 			markDone(todoDir, today)
 			return
+		case "help":
+		case "-h":
+		case "-help":
+		case "--help":
+			help()
+			return
 		default:
 			// ファイルが存在するか確認
 			filePath := filepath.Join(todoDir, cmd+".md")
@@ -58,8 +64,17 @@ func main() {
 		return
 	}
 
-	// 引数なし、または2つより多い場合はlist
-	listTodos(todoDir, editor)
+	// 引数なし、または2つより多い場合はhelp
+	help()
+}
+
+func help() {
+	fmt.Println("Usage: todo [command] [args...]")
+	fmt.Println("Commands:")
+	fmt.Println("  list    List all todos")
+	fmt.Println("  cd      Launch a subshell with cwd set to todoDir")
+	fmt.Println("  done    Mark a todo as done")
+	fmt.Println("  [todo_name] <project> Create a new todo with project")
 }
 
 func listTodos(todoDir string, editor string) {
@@ -68,26 +83,18 @@ func listTodos(todoDir string, editor string) {
 		log.Fatalf("Error listing files: %v\n", err)
 	}
 
-	var allInputs []string
-	for _, file := range files {
-		info, err := extractFrontMatter(file)
-		if err != nil {
-			continue
-		}
-		filename := filepath.Base(file)
-		allInputs = append(allInputs, fmt.Sprintf("%s\t%s\t%s\t%s", info.Title, info.CreatedAt, info.Project, filename))
-	}
-
-	if len(allInputs) == 0 {
+	if len(files) == 0 {
 		return
 	}
 
-	selected := runFzf(strings.Join(allInputs, "\n"))
+	var filenames []string
+	for _, f := range files {
+		filenames = append(filenames, filepath.Base(f))
+	}
+
+	selected := runFzf(strings.Join(filenames, "\n"), todoDir)
 	if selected != "" {
-		parts := strings.Split(selected, "\t")
-		if len(parts) >= 4 {
-			runEditor(editor, filepath.Join(todoDir, parts[3]))
-		}
+		runEditor(editor, filepath.Join(todoDir, selected))
 	}
 }
 
@@ -102,7 +109,7 @@ func markDone(todoDir string, today string) {
 		filenames = append(filenames, filepath.Base(f))
 	}
 
-	doneFile := runFzf(strings.Join(filenames, "\n"))
+	doneFile := runFzf(strings.Join(filenames, "\n"), todoDir)
 	if doneFile == "" {
 		return
 	}
@@ -139,8 +146,7 @@ func markDone(todoDir string, today string) {
 	destDir := filepath.Join(todoDir, "done", today)
 	err = os.MkdirAll(destDir, 0755)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating directory: %v\n", err)
-		return
+		log.Fatalf("Error creating directory: %v\n", err)
 	}
 
 	err = os.Rename(fullPath, filepath.Join(destDir, doneFile))
@@ -188,8 +194,9 @@ func extractFrontMatter(path string) (FrontMatter, error) {
 	return fm, err
 }
 
-func runFzf(input string) string {
-	cmd := exec.Command("fzf")
+func runFzf(input string, todoDir string) string {
+	cmd := exec.Command("fzf", "--preview", "sed -n '1,200p' {}")
+	cmd.Dir = todoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Stderr = os.Stderr
 	out, err := cmd.Output()
