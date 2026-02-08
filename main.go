@@ -20,7 +20,7 @@ type FrontMatter struct {
 }
 
 func main() {
-	todoDir := filepath.Join(os.Getenv("HOME"), "Documents/kurashidian/todo")
+	todoDir := defaultTodoDir()
 
 	today := time.Now().Format("2006-01-02")
 	editor := os.Getenv("EDITOR")
@@ -68,6 +68,19 @@ func main() {
 	help()
 }
 
+func defaultTodoDir() string {
+	if envDir, ok := os.LookupEnv("TODO_DIR"); ok && envDir != "" {
+		if strings.HasPrefix(envDir, "~") {
+			home := os.Getenv("HOME")
+			if home != "" {
+				return filepath.Clean(filepath.Join(home, strings.TrimPrefix(envDir, "~")))
+			}
+		}
+		return filepath.Clean(envDir)
+	}
+	return filepath.Join(os.Getenv("HOME"), "Documents/todo")
+}
+
 func help() {
 	fmt.Println("Usage: todo [command] [args...]")
 	fmt.Println("Commands:")
@@ -75,6 +88,8 @@ func help() {
 	fmt.Println("  cd      Launch a subshell with cwd set to todoDir")
 	fmt.Println("  done    Mark a todo as done")
 	fmt.Println("  [todo_name] <project> Create a new todo with project")
+	fmt.Println("Env:")
+	fmt.Println("  TODO_DIR    Override the todo directory (default: ~/Documents/todo)")
 }
 
 func listTodos(todoDir string, editor string) {
