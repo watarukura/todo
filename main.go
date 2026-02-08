@@ -58,12 +58,8 @@ func main() {
 		return
 	}
 
-	// 引数なし、または2つより多い
-	// bash: cd $todo_dir; printf -- "---\n{}\n---\n" | $EDOTOR; cd -
-	// 可能なら一時バッファ等でエディタを起動するが、
-	// bashスクリプトは単に $EDITOR にパイプしている。
-	// 多くのエディタは '-' なしのパイプ入力を好まない。
-	runEditorWithPipe(editor, "---\n{}\n---\n")
+	// 引数なし、または2つより多い場合はlist
+	listTodos(todoDir, editor)
 }
 
 func listTodos(todoDir string, editor string) {
@@ -206,23 +202,6 @@ func runFzf(input string) string {
 func runEditor(editor string, path string) {
 	cmd := exec.Command(editor, path)
 	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	_ = cmd.Run()
-}
-
-func runEditorWithPipe(editor string, content string) {
-	// 一部のエディタはパイプ入力に対応しない。Bash: printf ... | $EDITOR
-	// Goではstdin経由で渡せるか試す(例: vim -)
-	// ただしbashスクリプトは '-' なしの '$EDITOR' だけ。
-	// 多くのエディタは指示がないとstdinを無視する。
-	// viの場合は '-' がないと動かない。
-
-	cmd := exec.Command(editor)
-	if editor == "vi" || editor == "vim" || editor == "nvim" {
-		cmd = exec.Command(editor, "-")
-	}
-	cmd.Stdin = strings.NewReader(content)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	_ = cmd.Run()
