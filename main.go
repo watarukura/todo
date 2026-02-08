@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -36,45 +37,39 @@ func main() {
 			listTodos(todoDir, editor)
 			return
 		case "cd":
-			// Note: cd in a child process won't affect the parent shell.
-			// The original bash script had 'cd $todo_dir' which works because it's a function.
-			// In Go, we just print the path or handle it.
-			// But for a CLI tool, 'cd' usually isn't possible unless sourced.
-			fmt.Println(todoDir)
+			// Launch a subshell with cwd set to todoDir (chezmoi-like behavior).
+			runSubshell(todoDir)
 			return
 		case "done":
 			markDone(todoDir, today)
 			return
 		default:
-			// check if file exists
+			// ファイルが存在するか確認
 			filePath := filepath.Join(todoDir, cmd+".md")
 			if _, err := os.Stat(filePath); err == nil {
 				runEditor(editor, filePath)
 				return
 			}
-			// create new todo
 			createNewTodo(todoDir, cmd, "", today, editor)
 			return
 		}
 	} else if len(args) == 2 {
 		createNewTodo(todoDir, args[0], args[1], today, editor)
 		return
-	} else {
-		// No args or > 2 args
-		// bash: cd $todo_dir; printf -- "---\n{}\n---\n" | $EDOTOR; cd -
-		// We'll just run editor with a temporary buffer or similar if possible,
-		// but the bash script seems to just pipe into $EDITOR.
-		// Most editors don't like piping like that without '-'
-		runEditorWithPipe(editor, "---\n{}\n---\n")
-		return
 	}
+
+	// 引数なし、または2つより多い
+	// bash: cd $todo_dir; printf -- "---\n{}\n---\n" | $EDOTOR; cd -
+	// 可能なら一時バッファ等でエディタを起動するが、
+	// bashスクリプトは単に $EDITOR にパイプしている。
+	// 多くのエディタは '-' なしのパイプ入力を好まない。
+	runEditorWithPipe(editor, "---\n{}\n---\n")
 }
 
 func listTodos(todoDir string, editor string) {
 	files, err := filepath.Glob(filepath.Join(todoDir, "*.md"))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error listing files: %v\n", err)
-		return
+		log.Fatalf("Error listing files: %v\n", err)
 	}
 
 	var allInputs []string
@@ -103,8 +98,7 @@ func listTodos(todoDir string, editor string) {
 func markDone(todoDir string, today string) {
 	files, err := filepath.Glob(filepath.Join(todoDir, "*.md"))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error listing files: %v\n", err)
-		return
+		log.Fatalf("Error listing files: %v\n", err)
 	}
 
 	var filenames []string
@@ -119,24 +113,21 @@ func markDone(todoDir string, today string) {
 
 	fullPath := filepath.Join(todoDir, doneFile)
 
-	// Update frontmatter
+	// フロントマターを更新
 	content, err := os.ReadFile(fullPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading file: %v\n", err)
-		return
+		log.Fatalf("Error reading file: %v\n", err)
 	}
 
 	parts := strings.SplitN(string(content), "---", 3)
 	if len(parts) < 3 {
-		fmt.Fprintf(os.Stderr, "Invalid frontmatter format in %s\n", doneFile)
-		return
+		log.Fatalf("Invalid frontmatter format in %s\n", doneFile)
 	}
 
 	var fm FrontMatter
 	err = yaml.Unmarshal([]byte(parts[1]), &fm)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error parsing yaml: %v\n", err)
-		return
+		log.Fatalf("Error parsing yaml: %v\n", err)
 	}
 
 	fm.FinishedAt = today
@@ -145,11 +136,10 @@ func markDone(todoDir string, today string) {
 	newContent := fmt.Sprintf("---\n%s---\n%s", string(newYaml), parts[2])
 	err = os.WriteFile(fullPath, []byte(newContent), 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error writing file: %v\n", err)
-		return
+		log.Fatalf("Error writing file: %v\n", err)
 	}
 
-	// Move to done/today/
+	// done/today/ に移動
 	destDir := filepath.Join(todoDir, "done", today)
 	err = os.MkdirAll(destDir, 0755)
 	if err != nil {
@@ -159,7 +149,7 @@ func markDone(todoDir string, today string) {
 
 	err = os.Rename(fullPath, filepath.Join(destDir, doneFile))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error moving file: %v\n", err)
+		log.Fatalf("Error moving file: %v\n", err)
 	}
 }
 
@@ -180,8 +170,7 @@ func createNewTodo(todoDir, title, project, today, editor string) {
 
 	err := os.WriteFile(filePath, []byte(content), 0644)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating file: %v\n", err)
-		return
+		log.Fatalf("Error creating file: %v\n", err)
 	}
 
 	runEditor(editor, filePath)
@@ -223,17 +212,31 @@ func runEditor(editor string, path string) {
 }
 
 func runEditorWithPipe(editor string, content string) {
-	// Some editors might not support pipe. Bash: printf ... | $EDITOR
-	// In Go we can try to pass it via stdin if the editor supports it (like vim -)
-	// But the bash script just does '$EDITOR' without '-'.
-	// Most editors will ignore stdin unless told otherwise.
-	// If it's 'vi', it won't work without '-'.
+	// 一部のエディタはパイプ入力に対応しない。Bash: printf ... | $EDITOR
+	// Goではstdin経由で渡せるか試す(例: vim -)
+	// ただしbashスクリプトは '-' なしの '$EDITOR' だけ。
+	// 多くのエディタは指示がないとstdinを無視する。
+	// viの場合は '-' がないと動かない。
 
 	cmd := exec.Command(editor)
 	if editor == "vi" || editor == "vim" || editor == "nvim" {
 		cmd = exec.Command(editor, "-")
 	}
 	cmd.Stdin = strings.NewReader(content)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	_ = cmd.Run()
+}
+
+func runSubshell(dir string) {
+	// Spawn the user's shell as a subshell in the target directory.
+	shell := os.Getenv("SHELL")
+	if shell == "" {
+		shell = "sh"
+	}
+	cmd := exec.Command(shell)
+	cmd.Dir = dir
+	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	_ = cmd.Run()
