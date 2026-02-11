@@ -4,6 +4,7 @@
 
 - [yq](https://github.com/mikefarah/yq)
 - [fzf](https://github.com/junegunn/fzf)
+- [bat](https://github.com/sharkdp/bat)
 
 ## usage
 

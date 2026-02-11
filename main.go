@@ -210,7 +210,7 @@ func extractFrontMatter(path string) (FrontMatter, error) {
 }
 
 func runFzf(input string, todoDir string) string {
-	cmd := exec.Command("fzf", "--preview", "sed -n '1,200p' {}")
+	cmd := exec.Command("fzf", "--preview", "fzf-preview.sh {}")
 	cmd.Dir = todoDir
 	cmd.Stdin = strings.NewReader(input)
 	cmd.Stderr = os.Stderr
