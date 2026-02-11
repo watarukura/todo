@@ -30,7 +30,7 @@ Env:
 ```shell
 ❯ go run main.go test_todo test_project
 
-❯ cat $HOME/Documents/kurashidian/todo/test_todo.md 
+❯ cat $TODO_DIR/test_todo.md 
 ---
 title: test_todo
 created_at: "2026-02-08"
