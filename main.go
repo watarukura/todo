@@ -29,7 +29,6 @@ func main() {
 	}
 
 	args := os.Args[1:]
-	fmt.Println(args)
 
 	if len(args) == 1 {
 		cmd := args[0]
