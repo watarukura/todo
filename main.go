@@ -29,6 +29,7 @@ func main() {
 	}
 
 	args := os.Args[1:]
+	fmt.Println(args)
 
 	if len(args) == 1 {
 		cmd := args[0]
@@ -60,8 +61,20 @@ func main() {
 			return
 		}
 	} else if len(args) == 2 {
-		createNewTodo(todoDir, args[0], args[1], today, editor)
-		return
+		switch args[0] {
+		case "cd":
+		case "list":
+		case "done":
+		case "help":
+		case "-h":
+		case "-help":
+		case "--help":
+			help()
+			return
+		default:
+			createNewTodo(todoDir, args[0], args[1], today, editor)
+			return
+		}
 	}
 
 	// 引数なし、または2つより多い場合はhelp
