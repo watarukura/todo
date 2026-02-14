@@ -1,10 +1,13 @@
 # todo
 
-## requierd
+## required
 
-- [yq](https://github.com/mikefarah/yq)
 - [fzf](https://github.com/junegunn/fzf)
+
+## optional
+
 - [bat](https://github.com/sharkdp/bat)
+  - preview の syntax highlighting で使用
 
 ## usage
 
